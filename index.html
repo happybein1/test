@@ -1,23 +1,288 @@
-I can replace the current index page with the new HTML content you provided.
 
-Here is the updated code:
-
-```html
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brainstorming</title>
-    <link rel="stylesheet" href="styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prioritization Brainstorm Tool</title>
+<style>
+  :root{--i:#0077ff;--u:#ff7700;--e:#e60000;--bg:#f4f7fb}
+  html,body{min-height:100vh;margin:0;padding:.5rem;background:var(--bg);font-family:system-ui,Roboto,Helvetica,Arial;font-size:14px}
+  h1{margin:0 0 .5rem;font-size:1.25rem}
+  #projBar{display:flex;gap:.5rem;align-items:center;margin-bottom:.4rem;font-size:13px}
+  #bar{display:flex;gap:.3rem;margin-bottom:.4rem}
+  #bar input{flex:1;padding:.35rem;font-size:14px;border:1px solid #bbb;border-radius:3px}
+  button{padding:.3rem .5rem;font-size:13px;border:none;border-radius:3px;background:var(--i);color:#fff;cursor:pointer}
+  #opts{font-size:13px;display:flex;gap:.5rem;margin-bottom:.4rem;flex-wrap:wrap;align-items:center}
+  #rankList{list-style:none;margin:0;padding:0}
+  li{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem;background:#fff;border:1px solid #d0d0d0;border-radius:3px;padding:.2rem .3rem;margin:.15rem 0}
+  li:nth-child(odd){background:#fafbfc}
+  .txt{flex:1 1 100%;font-weight:600;padding-left:.2rem}
+  .sliders{display:flex;gap:.3rem;align-items:center;margin-top:.1rem}
+  .sliders label{font-size:11px;font-weight:600}
+  .sliders input{width:3rem}
+  .prio{background:#222;color:#fff;padding:.1rem .25rem;border-radius:3px;font-size:11px;font-weight:700;min-width:2rem;text-align:center}
+  .rm{background:transparent;color:#d00;border:none;font-size:15px;cursor:pointer;line-height:1;margin-left:.2rem}
+
+  /*  FIXED PREVIEW  */
+  #outWrap{margin-top:.5rem;background:#fff;border:1px solid #ccc;border-radius:3px;padding:.4rem;max-height:10rem;overflow:auto;font-size:12px}
+  #out{margin:0;white-space:pre;font-family:inherit}
+
+  #header{text-align:center;font-size:14px;font-weight:700;color:#444;margin-bottom:4px}
+  #matrixWrap{width:100%;margin-bottom:.5rem}
+  #matrix{display:grid;grid-template-columns:repeat(3,33.33vw);gap:3px;font-size:12px}
+  .cell{background:#e9e9e9;border-radius:3px;padding:6px;min-height:60px;display:flex;flex-direction:column}
+  .cell ul{margin:3px 0 0 12px;padding:0;font-size:11px}
+  .cell li{background:transparent;border:none;margin:1px 0;padding:0}
+  #presets{display:flex;gap:.5rem;align-items:center;margin:.4rem 0;font-size:12px}
+  #presets label{font-weight:600}
+  #presets input[type=range]{width:3rem}
+
+  /* ----  guide overlay  ---- */
+  #guideBox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:999}
+  #guideContent{background:var(--bg);max-width:620px;margin:10vh auto;padding:1.5rem 2rem;border-radius:6px;font-size:14px;line-height:1.45;max-height:80vh;overflow:auto}
+  #guideContent h2{margin-top:0}
+  #guideContent ul{padding-left:1.2rem}
+  #closeGuide{float:right;font-size:18px;background:none;color:#0077ff;border:none;cursor:pointer}
+</style>
 </head>
 <body>
-    <!-- Your HTML code here -->
-    <script src="script.js"></script>
+
+<h1>Prioritization Brainstorm Tool</h1>
+
+<!--  PROJECT SWITCHER  -->
+<div id="projBar">
+  <label>Project:
+    <select id="projSelect"></select>
+  </label>
+  <button id="newProjBtn">New</button>
+  <button id="delProjBtn">Delete</button>
+</div>
+
+<div id="bar">
+  <input id="newItem" placeholder="Option (Enter)" autocomplete="off">
+  <button id="addBtn">Add</button>
+</div>
+
+<div id="presets">
+  <label>I<input type="range" id="pi" min="0" max="5" value="3"></label>
+  <label>U<input type="range" id="pu" min="0" max="5" value="3"></label>
+  <label>E<input type="range" id="pe" min="0" max="5" value="2"></label>
+  <span id="pval">P=4.5</span>
+</div>
+
+<!--  MATRIX  -->
+<div id="matrixWrap">
+  <div id="header">Effort → , Impact ↑</div>
+  <div id="matrix"></div>
+</div>
+
+<!--  ACTIONS BELOW MATRIX  -->
+<div id="opts">
+  <label><input type="checkbox" id="autoSort"> Auto-sort</label>
+  <button id="copyBtn">Copy</button>
+  <button id="clearBtn">Clear</button>
+  <button id="guideBtn">Guide</button>
+</div>
+
+<ul id="rankList"></ul>
+<div id="outWrap"><pre id="out"></pre></div>
+
+<!--  GUIDE OVERLAY  -->
+<div id="guideBox">
+  <div id="guideContent">
+    <button id="closeGuide">&times;</button>
+    <h2>How to use this tool</h2>
+    <ul>
+      <li><strong>Add an idea:</strong> type a short description and press <em>Enter</em> or click <em>Add</em>.</li>
+      <li><strong>Set its factors:</strong>
+        <ul>
+          <li><strong>Impact (I):</strong> how big is the positive effect? (0-5)</li>
+          <li><strong>Urgency (U):</strong> how soon must it be done? (0-5)</li>
+          <li><strong>Effort (E):</strong> how much work is required? (0-5, higher = more work)</li>
+        </ul>
+      </li>
+      <li><strong>Priority score</strong> = (I × U) ÷ (E + 1). Higher is better.</li>
+      <li><strong>Matrix quick guide:</strong>
+        <ul>
+          <li><strong>Low-effort + High-impact:</strong> do these <em>first</em> (quick wins).</li>
+          <li><strong>Low-effort + Low-impact:</strong> fit these in when time is available.</li>
+          <li><strong>High-effort + High-impact:</strong> plan & resource these carefully.</li>
+          <li><strong>High-effort + Low-impact:</strong> reconsider or drop.</li>
+        </ul>
+      </li>
+      <li>Drag cards to re-order (auto-sort off) or let the list sort itself.</li>
+      <li>Your work is saved automatically in this browser – reload the page and it comes back.</li>
+      <li><strong>Copy</strong> exports the ranked list as plain text.</li>
+      <li><strong>Clear</strong> removes everything after confirmation.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+/* ----------  PROJECT SUPPORT  ---------- */
+const projSelect = document.getElementById('projSelect'),
+      newProjBtn = document.getElementById('newProjBtn'),
+      delProjBtn = document.getElementById('delProjBtn');
+
+function curKey(){ return 'brainstorm-' + projSelect.value; }
+function refreshProjList(){
+  projSelect.innerHTML='';
+  const names = Object.keys(localStorage)
+                      .filter(k => k.startsWith('brainstorm-'))
+                      .map(k => k.replace('brainstorm-',''))
+                      .sort();
+  if(!names.length){
+    localStorage.setItem('brainstorm-My Project','[]');
+    names.push('My Project');
+  }
+  names.forEach(n => projSelect.add(new Option(n,n)));
+}
+projSelect.onchange = () => {
+  list.innerHTML = "";      //  clean old cards
+  matrix.innerHTML = "";    //  clean old matrix
+  loadFromStorage();
+  buildMatrix();
+  buildOut();
+};
+newProjBtn.onclick = () => {
+  const name = prompt('New project name:')?.trim();
+  if(!name) return;
+  localStorage.setItem('brainstorm-'+name,'[]');
+  refreshProjList();
+  projSelect.value = name;
+  list.innerHTML = "";
+  matrix.innerHTML = "";
+  projSelect.onchange();
+};
+delProjBtn.onclick = () => {
+  if(confirm('Delete current project?')){
+    localStorage.removeItem(curKey());
+    refreshProjList();
+    projSelect.selectedIndex=0;
+    projSelect.onchange();
+  }
+};
+refreshProjList();
+
+/* ----------  short-cuts  ---------- */
+const list      = document.getElementById('rankList'),
+      input     = document.getElementById('newItem'),
+      addBtn    = document.getElementById('addBtn'),
+      copyBtn   = document.getElementById('copyBtn'),
+      clearBtn  = document.getElementById('clearBtn'),
+      guideBtn  = document.getElementById('guideBtn'),
+      closeGuide= document.getElementById('closeGuide'),
+      guideBox  = document.getElementById('guideBox'),
+      autoSortCk= document.getElementById('autoSort'),
+      out       = document.getElementById('out'),
+      matrix    = document.getElementById('matrix'),
+      pi= document.getElementById('pi'),
+      pu= document.getElementById('pu'),
+      pe= document.getElementById('pe'),
+      pval= document.getElementById('pval');
+
+/* ----------  guide toggle  ---------- */
+guideBtn.onclick = () => guideBox.style.display = 'block';
+closeGuide.onclick = () => guideBox.style.display = 'none';
+guideBox.onclick = e => { if (e.target === guideBox) guideBox.style.display = 'none'; };
+
+/* ----------  helpers  ---------- */
+function prio(i,u,e){return (i*u)/(e+1);}
+function updatePresets(){pval.textContent='P='+prio(+pi.value,+pu.value,+pe.value).toFixed(1);}
+[pi,pu,pe].forEach(el=>el.addEventListener('input',updatePresets));
+updatePresets();
+
+function cardPrio(card){const i=+card.querySelector('.i').value,u=+card.querySelector('.u').value,e=+card.querySelector('.e').value;return (i*u)/(e+1);}
+function updateCard(card){const p=cardPrio(card).toFixed(1);card.querySelector('.prio').textContent='P='+p;if(autoSortCk.checked)sortList();buildMatrix();buildOut();saveToStorage();}
+
+function makeCard(text,i=3,u=3,e=2){
+  const li=document.createElement('li');li.draggable=true;
+  li.innerHTML=`<div class="txt">${text}</div>
+<div class="sliders">
+  <label>I<input type="range" class="i" min="0" max="5" value="${i}"></label>
+  <label>U<input type="range" class="u" min="0" max="5" value="${u}"></label>
+  <label>E<input type="range" class="e" min="0" max="5" value="${e}"></label>
+  <span class="prio">P=${prio(i,u,e).toFixed(1)}</span>
+</div>
+<button class="rm">×</button>`;
+  ['i','u','e'].forEach(c=>li.querySelector('.'+c).addEventListener('input',()=>updateCard(li)));
+  li.querySelector('.rm').onclick=()=>{li.remove();buildMatrix();buildOut();saveToStorage();};
+
+  li.addEventListener('dragstart',e=>{e.dataTransfer.effectAllowed='move';li.classList.add('dragging');});
+  li.addEventListener('dragend',e=>{li.classList.remove('dragging');saveToStorage();});
+  li.addEventListener('dragover',e=>{if(autoSortCk.checked)return;e.preventDefault();const d=document.querySelector('.dragging'),after=getAfter(list,e.clientY);if(!after)list.appendChild(d);else list.insertBefore(d,after);});
+  updateCard(li);return li;
+}
+function getAfter(c,y){const dr=[...c.querySelectorAll('li:not(.dragging)')];return dr.reduce((close,child)=>{const box=child.getBoundingClientRect(),o=y-box.top-box.height/2;return o<0&&o>close.offset?{offset:o,element:child}:close;},{offset:Number.NEGATIVE_INFINITY}).element;}
+function sortList(){[...list.children].sort((a,b)=>cardPrio(b)-cardPrio(a)).forEach(c=>list.appendChild(c));buildOut();saveToStorage();}
+function buildOut(){const lines=[...list.querySelectorAll('li')].map((c,idx)=>`${idx+1}. ${c.querySelector('.txt').textContent}  (I=${c.querySelector('.i').value}×U=${c.querySelector('.u').value}÷E+1=${+c.querySelector('.e').value+1} → P=${cardPrio(c).toFixed(1)})`);out.textContent=lines.join('\n')||'(empty)';}
+
+function add(){
+  const v=input.value.trim();if(!v)return;
+  const card=makeCard(v,+pi.value,+pu.value,+pe.value);
+  list.appendChild(card); input.value='';
+  buildMatrix(); buildOut();
+  if(autoSortCk.checked)sortList();
+  saveToStorage();
+}
+addBtn.onclick=add; input.onkeydown=e=>{if(e.key==='Enter')add()};
+copyBtn.onclick=()=>{navigator.clipboard.writeText(out.textContent);copyBtn.textContent='OK';setTimeout(()=>copyBtn.textContent='Copy',800);};
+clearBtn.onclick=()=>{if(confirm('Clear everything?')){list.innerHTML='';localStorage.removeItem(curKey());buildMatrix();buildOut();}};
+autoSortCk.onchange=()=>{if(autoSortCk.checked)sortList();};
+
+function urgencyColor(u){
+  if(u<=1) return '#28a745';      // green
+  if(u<=3) return '#ff7700';      // orange
+  return '#dc3545';               // red
+}
+function buildMatrix(){
+  const buckets=Array.from({length:3},()=>Array.from({length:3},()=>[]));
+  list.querySelectorAll('li').forEach(card=>{
+    const i=Math.min(2,Math.max(0,Math.floor(+card.querySelector('.i').value/2)));
+    const e=Math.min(2,Math.max(0,Math.floor(+card.querySelector('.e').value/2)));
+    const u=+card.querySelector('.u').value;
+    const txt=card.querySelector('.txt').textContent;
+    buckets[i][e].push({txt,u});
+  });
+  matrix.innerHTML='';
+  for(let i=2;i>=0;i--){
+    for(let j=0;j<3;j++){
+      const cell=document.createElement('div');cell.className='cell';
+      const items=buckets[i][j];
+      if(items.length){
+        const ul=document.createElement('ul');
+        items.forEach(it=>{
+          const li2=document.createElement('li');
+          li2.textContent='- '+it.txt;
+          li2.style.color=urgencyColor(it.u);
+          ul.appendChild(li2);
+        });
+        cell.appendChild(ul);
+      }
+      matrix.appendChild(cell);
+    }
+  }
+}
+
+/*  SAFE SAVE – skips while dragging  */
+function saveToStorage(){
+  if (document.querySelector('.dragging')) return;   //  ⭐ guard
+  const arr=[...list.querySelectorAll('li')].map(li=>({text:li.querySelector('.txt').textContent,i:li.querySelector('.i').value,u:li.querySelector('.u').value,e:li.querySelector('.e').value}));
+  localStorage.setItem(curKey(),JSON.stringify(arr));
+}
+
+function loadFromStorage(){
+  try{
+    const raw=localStorage.getItem(curKey());
+    if(!raw) return;
+    JSON.parse(raw).forEach(item=>list.appendChild(makeCard(item.text,item.i,item.u,item.e)));
+    buildMatrix();buildOut();
+    if(autoSortCk.checked)sortList();
+  }catch(e){}
+}
+
+projSelect.onchange();   // initial load
+</script>
 </body>
 </html>
-```
-
-Please note that I removed the existing HTML content and added a basic HTML structure with a `<head>` section for metadata, a `<body>` section for the main content, and a link to an external stylesheet (replace `styles.css` with your actual stylesheet name) and script (replace `script.js` with your actual script file name). You can add your own styles and scripts as needed.
-
-Also, please note that I did not modify any of the JavaScript code or its functionality. If you need help with modifying or debugging the JavaScript code, please let me know and I'll be happy to assist you.
